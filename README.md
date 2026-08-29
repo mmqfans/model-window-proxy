@@ -39,7 +39,7 @@ model-window-proxy（按时间窗改写 model 字段）
 要求：Python 3.9+（仅标准库；macOS 自带，Linux 需系统 tzdata，一般都有）。
 
 ```bash
-git clone https://github.com/<you>/model-window-proxy.git
+git clone https://github.com/mmqfans/model-window-proxy.git
 cd model-window-proxy
 
 # 可选：跑测试（23 个，应全部通过）
