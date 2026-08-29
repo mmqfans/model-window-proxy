@@ -1,0 +1,16 @@
+{
+  "listen_port": 8399,
+  "timezone": "Asia/Shanghai",
+  "upstream_base": "https://api.commandcode.ai/provider/v1",
+  "api_key_env": "CC_API_KEY",
+  "glm_model": "z-ai/glm-5.3-flash",
+  "ds_model": "deepseek/deepseek-v4-flash",
+  "windows": [
+    {"days": [1, 2, 3, 4, 5], "start": "09:00", "end": "12:00"},
+    {"days": [1, 2, 3, 4, 5], "start": "14:00", "end": "18:00"}
+  ],
+  "edge_buffer_seconds": 60,
+  "upstream_timeout_seconds": 600,
+  "holidays": [],
+  "workdays": []
+}
