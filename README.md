@@ -88,9 +88,15 @@ python3 -m unittest -v
 
 ```bash
 export CC_API_KEY=sk-你的key      # 变量名与 config 的 api_key_env 对应
-python3 server.py
-# => model-window-proxy on :41573 -> https://api.commandcode.ai/provider/v1
+
+python3 proxyctl.py start         # 后台启动（脱离终端，关窗口不死）
+python3 proxyctl.py status        # 状态：进程 / 端口 / 当前窗口模型
+python3 proxyctl.py which         # 只打印当前生效模型
+python3 proxyctl.py restart
+python3 proxyctl.py stop
 ```
+
+也可以前台直接跑 `python3 server.py`（Ctrl-C 停止）。
 
 **第 3 步：把客户端指过来**——把任何 OpenAI 兼容工具的 `base_url` 改为：
 
@@ -102,9 +108,9 @@ API key 字段随便填（如 `ollama`），代理会用环境变量里的真实
 
 **日常运维**：
 
-- 查当前生效模型：`curl http://127.0.0.1:41573/_which`
-- 改了 `config.json` 需**重启** server（配置仅在启动时读取）
-- server 是前台进程，Mac 重启后不会自动拉起（刻意 fail loud；需要常驻可自行包一层 LaunchAgent/systemd）
+- 查当前生效模型：`python3 proxyctl.py which` 或 `curl http://127.0.0.1:41573/_which`
+- 改了 `config.json` 后 `python3 proxyctl.py restart`（配置仅在启动时读取）
+- 代理进程与终端解耦（`start_new_session`），关窗口/注销不会死；但重启电脑后需重新 `python3 proxyctl.py start`（刻意 fail loud；需要开机自启可自行包一层 LaunchAgent/systemd）
 - 注意：只对路径以 `/chat/completions` 结尾的 POST 做模型改写；其他请求（如 Anthropic 格式的 `/v1/messages`）原样转发、不改写
 
 ## 5. 输入输出示例

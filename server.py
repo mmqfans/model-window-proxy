@@ -136,9 +136,9 @@ class Handler(BaseHTTPRequestHandler):
                 self.wfile.flush()
         except (BrokenPipeError, ConnectionResetError):
             pass  # 客户端提前断开（agent 取消等），属正常
-        except OSError:
+        except OSError as e:
             if resp is None:
-                self._send_json(502, {"error": "upstream unreachable"})  # 头未发出，可安全回 502
+                self._send_json(502, {"error": f"upstream unreachable: {e}"})  # 头未发出，可安全回 502
             else:
                 self.close_connection = True  # 头已发出：直接中止连接，写 502 会损坏流（审核 P1 修正）
         finally:
