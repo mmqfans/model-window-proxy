@@ -1,7 +1,7 @@
 """本地模型切换代理。改写 /v1/chat/completions 的 model 字段，其余原样转发。
 
 运行: CC_API_KEY=xxx python3 server.py
-观测: curl http://127.0.0.1:8399/_which
+观测: curl http://127.0.0.1:41573/_which
 强制: 请求头 X-Model-Override: <model-id>
 """
 import json

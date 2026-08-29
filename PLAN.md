@@ -4,7 +4,7 @@
 
 **Goal:** 本地反向代理，按时间窗口自动切换 CommandCode Provider API 的模型——周一至周五 09:00–12:00 与 14:00–18:00（Asia/Shanghai）用 GLM-5.3 Flash，其余时间（含周末整日）用 DeepSeek V4 Flash；窗口尾部按最不利原则延长 60 秒缓冲（12:00/18:00 起 60 秒内仍走 GLM，之后才切 DS）。
 
-**Architecture:** 纯 Python 标准库，两个文件：① `selector.py`——纯函数，给定时刻返回应使用的模型 ID（可单测）；② `server.py`——`ThreadingHTTPServer` 反向代理，改写请求体里的 `model` 字段后转发到 `api.commandcode.ai`（上游路径 = base 路径 + 客户端路径剥 `/v1` 前缀，见 `build_upstream_path`），响应（含 SSE 流式）用 `read1` 低延迟透传，每个请求的改写结果写入 stdout/access.log。客户端只需把 base_url 指到 `http://127.0.0.1:8399/v1`，无需感知切换逻辑。**不引入任何后台定时组件**（对抗审核第二轮结论：00:05 快照文件恒为 DS、server 也不读它，纯误导性冗余——已删除原 switch.py/launchd 方案，Simplicity First）。
+**Architecture:** 纯 Python 标准库，两个文件：① `selector.py`——纯函数，给定时刻返回应使用的模型 ID（可单测）；② `server.py`——`ThreadingHTTPServer` 反向代理，改写请求体里的 `model` 字段后转发到 `api.commandcode.ai`（上游路径 = base 路径 + 客户端路径剥 `/v1` 前缀，见 `build_upstream_path`），响应（含 SSE 流式）用 `read1` 低延迟透传，每个请求的改写结果写入 stdout/access.log。客户端只需把 base_url 指到 `http://127.0.0.1:41573/v1`，无需感知切换逻辑。**不引入任何后台定时组件**（对抗审核第二轮结论：00:05 快照文件恒为 DS、server 也不读它，纯误导性冗余——已删除原 switch.py/launchd 方案，Simplicity First）。
 
 **Tech Stack:** Python 标准库（http.server / http.client / unittest / zoneinfo，零第三方依赖；代码按 `/usr/bin/python3` 3.9 兼容书写）；git。
 
@@ -43,7 +43,7 @@ model-window-proxy/
 
 ```json
 {
-  "listen_port": 8399,
+  "listen_port": 41573,
   "timezone": "Asia/Shanghai",
   "upstream_base": "https://api.commandcode.ai/provider/v1",
   "api_key_env": "CC_API_KEY",
@@ -322,7 +322,7 @@ Expected: FAIL — `ModuleNotFoundError: No module named 'server'`
 """本地模型切换代理。改写 /v1/chat/completions 的 model 字段，其余原样转发。
 
 运行: CC_API_KEY=xxx python3 server.py
-观测: curl http://127.0.0.1:8399/_which
+观测: curl http://127.0.0.1:41573/_which
 强制: 请求头 X-Model-Override: <model-id>
 """
 import json
@@ -482,7 +482,7 @@ Run:
 ```bash
 cd ~/Hermes-Projects/model-window-proxy
 python3 server.py & sleep 1
-curl -s http://127.0.0.1:8399/_which
+curl -s http://127.0.0.1:41573/_which
 kill %1
 ```
 Expected: `{"model": "...", "local_time": "2026-08-29T..."}`，model 与当时窗口一致（周六 16:xx → ds 模型）
@@ -508,7 +508,7 @@ cd ~/Hermes-Projects/model-window-proxy && CC_API_KEY=xxx python3 server.py
 **Step 2: 非流式**（另开终端）
 
 ```bash
-curl -s http://127.0.0.1:8399/v1/chat/completions \
+curl -s http://127.0.0.1:41573/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "ignored", "messages": [{"role": "user", "content": "说 ok"}]}'
 ```
@@ -517,7 +517,7 @@ Expected: 200。**改写判定以 `logs/access.log` 最新一行（含 `model=..
 **Step 3: 流式**
 
 ```bash
-curl -sN http://127.0.0.1:8399/v1/chat/completions \
+curl -sN http://127.0.0.1:41573/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{"model": "ignored", "stream": true, "messages": [{"role": "user", "content": "数到3"}]}'
 ```
@@ -526,7 +526,7 @@ Expected: 逐块出现 `data: {...}` SSE 帧（验证透传没缓冲住流）
 **Step 4: override 头**
 
 ```bash
-curl -s http://127.0.0.1:8399/v1/chat/completions \
+curl -s http://127.0.0.1:41573/v1/chat/completions \
   -H "Content-Type: application/json" -H "X-Model-Override: z-ai/glm-5.3-flash" \
   -d '{"model": "ignored", "messages": [{"role": "user", "content": "说 ok"}]}'
 ```
@@ -534,7 +534,7 @@ Expected: access.log 该行 `model=z-ai/glm-5.3-flash`（窗口外也能强制�
 
 **Step 5: 把客户端指过来**
 
-Hermes/其他 agent 的 provider base_url 改为 `http://127.0.0.1:8399/v1`（API key 字段填 CC key，代理会覆盖 Authorization）。观察一天，对照 `logs/access.log`（时间/上游路径/所选模型三要素齐全）与 `GET /_which`。
+Hermes/其他 agent 的 provider base_url 改为 `http://127.0.0.1:41573/v1`（API key 字段填 CC key，代理会覆盖 Authorization）。观察一天，对照 `logs/access.log`（时间/上游路径/所选模型三要素齐全）与 `GET /_which`。
 
 **Step 6: 最终 commit + README**
 

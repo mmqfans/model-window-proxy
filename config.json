@@ -1,5 +1,5 @@
 {
-  "listen_port": 8399,
+  "listen_port": 41573,
   "timezone": "Asia/Shanghai",
   "upstream_base": "https://api.commandcode.ai/provider/v1",
   "api_key_env": "CC_API_KEY",

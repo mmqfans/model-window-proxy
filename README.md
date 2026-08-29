@@ -10,7 +10,7 @@
 
 ```
 你的客户端（任意 OpenAI 兼容工具）
-      │  base_url 指向 http://127.0.0.1:8399/v1
+      │  base_url 指向 http://127.0.0.1:41573/v1
       ▼
 model-window-proxy（按时间窗改写 model 字段）
       │  转发 + 注入你的 API key
@@ -23,7 +23,7 @@ model-window-proxy（按时间窗改写 model 字段）
 ## 2. 主要功能
 
 - **按时间窗自动切换模型**：多个窗口、按星期几生效，窗口精确到秒
-- **客户端零改动**：任何能把 `base_url` 指到 `http://127.0.0.1:8399/v1` 的工具都能直接用
+- **客户端零改动**：任何能把 `base_url` 指到 `http://127.0.0.1:41573/v1` 的工具都能直接用
 - **`X-Model-Override` 请求头**：单个请求强制指定模型，临时绕过时间窗（该头不会转发给上游）
 - **`GET /_which` 观测端点**：随时查询当前时间窗生效的模型
 - **API key 注入**：key 只存在环境变量里，客户端随便填占位符即可；key 不落盘、不进日志
@@ -54,7 +54,7 @@ python3 -m unittest -v
 
 ```json
 {
-  "listen_port": 8399,
+  "listen_port": 41573,
   "timezone": "Asia/Shanghai",
   "upstream_base": "https://api.commandcode.ai/provider/v1",
   "api_key_env": "CC_API_KEY",
@@ -89,20 +89,20 @@ python3 -m unittest -v
 ```bash
 export CC_API_KEY=sk-你的key      # 变量名与 config 的 api_key_env 对应
 python3 server.py
-# => model-window-proxy on :8399 -> https://api.commandcode.ai/provider/v1
+# => model-window-proxy on :41573 -> https://api.commandcode.ai/provider/v1
 ```
 
 **第 3 步：把客户端指过来**——把任何 OpenAI 兼容工具的 `base_url` 改为：
 
 ```
-http://127.0.0.1:8399/v1
+http://127.0.0.1:41573/v1
 ```
 
 API key 字段随便填（如 `ollama`），代理会用环境变量里的真实 key 覆盖 `Authorization`。
 
 **日常运维**：
 
-- 查当前生效模型：`curl http://127.0.0.1:8399/_which`
+- 查当前生效模型：`curl http://127.0.0.1:41573/_which`
 - 改了 `config.json` 需**重启** server（配置仅在启动时读取）
 - server 是前台进程，Mac 重启后不会自动拉起（刻意 fail loud；需要常驻可自行包一层 LaunchAgent/systemd）
 - 注意：只对路径以 `/chat/completions` 结尾的 POST 做模型改写；其他请求（如 Anthropic 格式的 `/v1/messages`）原样转发、不改写
@@ -114,7 +114,7 @@ API key 字段随便填（如 `ollama`），代理会用环境变量里的真实
 **查询当前窗口**：
 
 ```console
-$ curl http://127.0.0.1:8399/_which
+$ curl http://127.0.0.1:41573/_which
 {"model": "deepseek/deepseek-v4-flash", "local_time": "2026-08-29T20:19:06.750310+08:00"}
 ```
 
@@ -123,7 +123,7 @@ $ curl http://127.0.0.1:8399/_which
 **普通对话请求**（客户端发什么 `model` 都行，会被改写）：
 
 ```console
-$ curl http://127.0.0.1:8399/v1/chat/completions \
+$ curl http://127.0.0.1:41573/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{"model": "ignored", "max_tokens": 50,
          "messages": [{"role": "user", "content": "reply with one word: pong"}]}'
@@ -143,7 +143,7 @@ $ curl http://127.0.0.1:8399/v1/chat/completions \
 **流式请求**（`"stream": true`，SSE 帧逐块透传）：
 
 ```console
-$ curl -N http://127.0.0.1:8399/v1/chat/completions \
+$ curl -N http://127.0.0.1:41573/v1/chat/completions \
     -H "Content-Type: application/json" \
     -d '{"model": "ignored", "stream": true, "max_tokens": 80,
          "messages": [{"role": "user", "content": "count 1 to 3"}]}'
@@ -161,7 +161,7 @@ data: {"id":"gen_01M...","choices":[{"delta":{"reasoning":" need"},...}]}
 **强制指定模型**（窗口外也能覆盖，本例在周六晚上强制 GLM）：
 
 ```console
-$ curl http://127.0.0.1:8399/v1/chat/completions \
+$ curl http://127.0.0.1:41573/v1/chat/completions \
     -H "Content-Type: application/json" \
     -H "X-Model-Override: z-ai/glm-5.3-flash" \
     -d '{"model": "ignored", "max_tokens": 60,
@@ -181,10 +181,10 @@ $ curl http://127.0.0.1:8399/v1/chat/completions \
 **非法请求**：
 
 ```console
-$ curl -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8399/v1/chat/completions \
+$ curl -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:41573/v1/chat/completions \
     -H "Content-Type: application/json" -d 'not-json'
 400
-$ curl -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:8399/v1/chat/completions \
+$ curl -o /dev/null -w "%{http_code}\n" -X POST http://127.0.0.1:41573/v1/chat/completions \
     -H "Content-Type: application/json" -d '[1,2]'
 400
 ```
